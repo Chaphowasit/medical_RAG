@@ -1,6 +1,0 @@
-qdrant-client
-langchain_community 
-pypdf
-langchain-qdrant 
-langchain-openai
-python-dotenv

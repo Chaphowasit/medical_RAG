@@ -1,33 +1,37 @@
 import streamlit as st
 from adaptors.qdrant_adaptors import QdrantAdaptor
+from chatbot.chatbot import Chatbot  # Assuming the chatbot implementation is saved in chatbot.py
 
 @st.cache_resource
-def get_qdrant_adaptor():
+def get_chatbot():
+    """
+    Initialize and cache the chatbot instance with a QdrantAdaptor.
+    """
     adaptor = QdrantAdaptor()
     adaptor.get_or_create_collection(collection_name="medical")
-    return adaptor
+    return Chatbot(adaptor=adaptor)
 
 # Streamlit UI
-st.title("RAG search")
+st.title("Chatbot with RAG")
 
 # Text input
-user_text = st.text_area("Enter your text here:", height=200)
+user_text = st.text_area("Enter your query here:", height=200)
 
 # Submit button
 if st.button("Submit"):
     if user_text.strip():
-        st.success("Text submitted successfully!")
-        st.write("You submitted the following text:")
+        st.success("Query submitted successfully!")
+        st.write("Your query:")
         st.write(user_text)
 
-        # Use QdrantAdaptor for retrieval
-        adaptor = get_qdrant_adaptor()
-        results = adaptor.retrieval(query=user_text, top_k=2)
-        
-        st.write("Similarity Search Results:")
-        for rank, result in results.items():
-            st.write(f"Rank {rank + 1}:")
-            st.write(f"Content: {result['Content']}")
-            st.write(f"Metadata: {result['Metadata']}")
+        # Get the chatbot instance
+        chatbot = get_chatbot()
+
+        # Generate a response using the chatbot
+        response = chatbot.response(query=user_text)
+
+        # Display the response
+        st.write("Chatbot Response:")
+        st.write(response)
     else:
-        st.error("Please enter some text before submitting.")
+        st.error("Please enter a query before submitting.")

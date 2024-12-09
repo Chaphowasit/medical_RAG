@@ -15,13 +15,13 @@ from langchain_core.tools import tool
 from dotenv import load_dotenv
 import os
 
+
 class Chatbot:
     def __init__(self, adaptor: QdrantAdaptor):
         """Initialize the chatbot with Qdrant adaptor and graph."""
         load_dotenv(override=True)
         self.embeddings = OpenAIEmbeddings(
-            model="text-embedding-ada-002", 
-            api_key=os.getenv("OPENAI_API_KEY")
+            model="text-embedding-ada-002", api_key=os.getenv("OPENAI_API_KEY")
         )
         self.client = QdrantClient(
             url=os.getenv("QDRANT_URL"),
@@ -32,23 +32,22 @@ class Chatbot:
             collection_name="medical",
             embedding=self.embeddings,
         )
-        
+
         @tool(response_format="content_and_artifact")
         def retrieve(query: str):
             """Retrieve information related to a query."""
-            retrieved_docs = self.vector_store.similarity_search(query, k=2)
+            retrieved_docs = self.vector_store.similarity_search(query, k=6)
             serialized = "\n\n".join(
                 (f"Source: {doc.metadata}\n" f"Content: {doc.page_content}")
                 for doc in retrieved_docs
             )
             return serialized, retrieved_docs
-        
+
         # Enable in-memory cache for the chatbot
         set_llm_cache(InMemoryCache())
-        
+
         self.adaptor = adaptor
         self.retrieve = retrieve
-        
 
         # Initialize LLM
         self.llm = ChatOpenAI(model="gpt-4o-mini", max_tokens=8000)
@@ -60,6 +59,7 @@ class Chatbot:
 
     def _build_graph(self, memory):
         """Build the chatbot's workflow graph."""
+
         # Step 1: Generate an AIMessage that may include a tool-call to be sent.
         def query_or_respond(state: MessagesState):
             """Generate tool call for retrieval or respond."""
@@ -68,10 +68,8 @@ class Chatbot:
             # MessagesState appends messages to state instead of overwriting
             return {"messages": [response]}
 
-
         # Step 2: Execute the retrieval.
         tools = ToolNode([self.retrieve])
-
 
         # Step 3: Generate a response using the retrieved content.
         def generate(state: MessagesState):
@@ -94,9 +92,9 @@ class Chatbot:
                 "the question. If the following context don't provide the related answer, "
                 "say that you don't know."
                 "\n\n"
-                f"context: \"\"\"{docs_content}\"\"\" "
+                f'context: """{docs_content}""" '
             )
-            
+
             conversation_messages = [
                 message
                 for message in state["messages"]
@@ -133,11 +131,11 @@ class Chatbot:
         """Process a user message through the graph."""
         print("query msgs:", query)
         for step in self.graph.stream(
-            {"messages": [{"role": "user", "content": query}]}, 
+            {"messages": [{"role": "user", "content": query}]},
             stream_mode="values",
-            config=self.config
+            config=self.config,
         ):
             final_message = step["messages"][-1]
         print("query response:", final_message.content)
-        print("="*30)
+        print("=" * 30)
         return final_message.content

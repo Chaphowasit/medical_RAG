@@ -37,6 +37,7 @@ class Chatbot:
         def retrieve(query: str):
             """Retrieve information related to a query."""
             retrieved_docs = self.vector_store.similarity_search(query, k=6)
+            print(" retrieve_docs_len :  ", len(retrieved_docs))
             serialized = "\n\n".join(
                 (f"Source: {doc.metadata}\n" f"Content: {doc.page_content}")
                 for doc in retrieved_docs

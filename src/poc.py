@@ -1,6 +1,9 @@
 import streamlit as st
 from adaptors.qdrant_adaptors import QdrantAdaptor
-from chatbot.chatbot import Chatbot  # Assuming the chatbot implementation is saved in chatbot.py
+from chatbot.chatbot import (
+    Chatbot,
+)  # Assuming the chatbot implementation is saved in chatbot.py
+
 
 @st.cache_resource
 def get_chatbot():
@@ -8,8 +11,9 @@ def get_chatbot():
     Initialize and cache the chatbot instance with a QdrantAdaptor.
     """
     adaptor = QdrantAdaptor()
-    adaptor.get_or_create_collection(collection_name="medical")
+    # adaptor.get_or_create_collection(collection_name="medical")
     return Chatbot(adaptor=adaptor)
+
 
 # Streamlit UI
 st.title("Chatbot with RAG")

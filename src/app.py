@@ -18,5 +18,5 @@ class QueryRequest(BaseModel):
 @app.post("/", response_class=JSONResponse)
 def submit(request: QueryRequest):
     user_query = request.user_query
-    results = adaptor.retrieval(query=user_query, top_k=2)
+    results = adaptor.retrieval(query=user_query, top_k=6)
     return {"user_query": user_query, "results": results}

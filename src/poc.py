@@ -10,9 +10,8 @@ def get_chatbot():
     """
     Initialize and cache the chatbot instance with a QdrantAdaptor.
     """
-    adaptor = QdrantAdaptor()
-
-    return Chatbot(adaptor=adaptor)
+    # adaptor = QdrantAdaptor()
+    return Chatbot(None)
 
 
 st.title("Chatbot with RAG")

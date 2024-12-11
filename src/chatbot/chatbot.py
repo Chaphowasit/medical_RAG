@@ -7,8 +7,8 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.caches import InMemoryCache
 from langchain_core.globals import set_llm_cache
 
-from adaptors.qdrant_adaptors import QdrantAdaptor
-from adaptors.qdrant_adaptors import NLPTransformation
+# from adaptors.qdrant_adaptors import QdrantAdaptor
+# from adaptors.qdrant_adaptors import NLPTransformation
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 from langchain_openai import OpenAIEmbeddings
@@ -18,7 +18,7 @@ import os
 
 
 class Chatbot:
-    def __init__(self, adaptor: QdrantAdaptor):
+    def __init__(self, adaptor):
         """Initialize the chatbot with Qdrant adaptor and graph."""
         load_dotenv(override=True)
         self.embeddings = OpenAIEmbeddings(
@@ -73,8 +73,8 @@ class Chatbot:
 
         set_llm_cache(InMemoryCache())
 
-        self.adaptor = adaptor
-        self.nlp_class = NLPTransformation()
+        # self.adaptor = adaptor
+        # self.nlp_class = NLPTransformation()
         self.retrieve = retrieve
 
         self.llm = ChatOpenAI(model="gpt-4o", max_tokens=8000)
@@ -83,23 +83,23 @@ class Chatbot:
         self.graph = self._build_graph(self.memory)
         self.config = {"configurable": {"thread_id": "abc123"}}
 
-    def rerank_documents(
-        self, query: str, search_results: List[dict], top_k: int = 5
-    ) -> List[dict]:
-        """Rerank documents based on keyword overlap with the query."""
+    # def rerank_documents(
+    #     self, query: str, search_results: List[dict], top_k: int = 5
+    # ) -> List[dict]:
+    #     """Rerank documents based on keyword overlap with the query."""
 
-        query_keywords = self.nlp_class.extract_keywords(query)
+    #     query_keywords = self.nlp_class.extract_keywords(query)
 
-        def calculate_keyword_match(doc_keywords: List[str]) -> int:
-            """Counts how many query keywords are in the document's keywords."""
-            return len(set(query_keywords) & set(doc_keywords))
+    #     def calculate_keyword_match(doc_keywords: List[str]) -> int:
+    #         """Counts how many query keywords are in the document's keywords."""
+    #         return len(set(query_keywords) & set(doc_keywords))
 
-        search_results.sort(
-            key=lambda x: calculate_keyword_match(x["keywords"]),
-            reverse=True,
-        )
+    #     search_results.sort(
+    #         key=lambda x: calculate_keyword_match(x["keywords"]),
+    #         reverse=True,
+    #     )
 
-        return search_results[:top_k]
+    #     return search_results[:top_k]
 
     def _build_graph(self, memory):
         """Build the chatbot's workflow graph."""

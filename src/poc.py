@@ -1,5 +1,6 @@
 import streamlit as st
-from adaptors.qdrant_adaptors import QdrantAdaptor
+
+# from adaptors.qdrant_adaptors import QdrantAdaptor
 from chatbot.chatbot import (
     Chatbot,
 )

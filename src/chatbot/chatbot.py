@@ -1,4 +1,8 @@
 from typing import List
+from langchain.retrievers import ContextualCompressionRetriever
+from langchain.retrievers.document_compressors import LLMListwiseRerank
+from langchain.retrievers.document_compressors import LLMChainExtractor
+from langchain_openai import OpenAI
 from langgraph.graph import MessagesState, StateGraph, END
 from langgraph.prebuilt import ToolNode, tools_condition
 from langchain_core.messages import SystemMessage
@@ -6,6 +10,7 @@ from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.caches import InMemoryCache
 from langchain_core.globals import set_llm_cache
+from qdrant_client import models
 
 # from adaptors.qdrant_adaptors import QdrantAdaptor
 # from adaptors.qdrant_adaptors import NLPTransformation
@@ -15,6 +20,7 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_core.tools import tool
 from dotenv import load_dotenv
 import os
+from langchain.prompts import PromptTemplate
 
 
 class Chatbot:
@@ -33,7 +39,11 @@ class Chatbot:
             collection_name="medical",
             embedding=self.embeddings,
         )
-
+        self.llm = OpenAI(temperature=0.5, api_key=os.getenv("OPENAI_API_KEY"))
+        self.prompt = PromptTemplate(
+            input_variables=["query"],
+            template="Rewrite this query to be more specific and useful for a search engine: {query} in thai language",
+        )
         # @tool(response_format="content_and_artifact")
         # def retrieve(query: str):
         #     """Retrieve and rerank information related to a query."""
@@ -62,14 +72,38 @@ class Chatbot:
         @tool(response_format="content_and_artifact")
         def retrieve(query: str):
             """Retrieve information related to a query."""
-            # query = self.nlp_class.preprocess_text(query)
-            retrieved_docs = self.vector_store.similarity_search(query, k=20)
-            print(" retrieve_docs_len :  ", len(retrieved_docs))
+            # query = str(self.llm(self.prompt.format(query=query)))
+            retriever = self.vector_store.as_retriever(
+                search_type="similarity_score_threshold",
+                search_kwargs={"score_threshold": 0.5},
+            )
+            llm = ChatOpenAI(
+                model="gpt-4o", temperature=0, api_key=os.getenv("OPENAI_API_KEY")
+            )
+            _filter = LLMListwiseRerank.from_llm(llm, top_n=10)
+            # compressor = LLMChainExtractor.from_llm(llm)
+            compression_retriever = ContextualCompressionRetriever(
+                base_compressor=_filter, base_retriever=retriever
+            )
+            compressed_docs = compression_retriever.invoke(query)
+            # retrieved_docs = self.vector_store.similarity_search(
+            #     query,
+            #     k=20,
+            #     # filter=models.Filter(
+            #     #     should=[
+            #     #         models.FieldCondition(
+            #     #             key="metadata",
+            #     #             match=models.MatchValue(value=query),
+            #     #         ),
+            #     #     ]
+            #     # ),
+            # )
+            print("retrieve_docs_len : ", len(compressed_docs))
             serialized = "\n\n".join(
                 (f"Source: {doc.metadata}\n" f"Content: {doc.page_content}")
-                for doc in retrieved_docs
+                for doc in compressed_docs
             )
-            return serialized, retrieved_docs
+            return serialized, compressed_docs
 
         set_llm_cache(InMemoryCache())
 

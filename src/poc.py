@@ -30,8 +30,8 @@ if st.button("Submit"):
         chatbot = get_chatbot()
         response, rag_response = chatbot.response(query=user_text)
 
-        # st.subheader("Chatbot Response:")
-        # st.write(response)
+        st.subheader("Chatbot Response:")
+        st.write(response)
 
         st.subheader("RAG Response:")
         st.write(rag_response)

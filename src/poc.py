@@ -1,9 +1,7 @@
 import streamlit as st
 
-# from adaptors.qdrant_adaptors import QdrantAdaptor
-from chatbot.chatbot import (
-    Chatbot,
-)
+from adaptors.qdrant_adaptors import QdrantAdaptor
+from services.chatbot import Chatbot
 
 
 @st.cache_resource
@@ -11,8 +9,8 @@ def get_chatbot():
     """
     Initialize and cache the chatbot instance with a QdrantAdaptor.
     """
-    # adaptor = QdrantAdaptor()
-    return Chatbot(None)
+    adaptor = QdrantAdaptor()
+    return Chatbot(adaptor.client)
 
 
 st.title("Chatbot with RAG")

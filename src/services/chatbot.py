@@ -30,7 +30,7 @@ class Chatbot:
 
         @tool(response_format="content_and_artifact")
         def retrieve(query: str):
-            """Retrieve information related to a query."""
+            """Retrieve information related to a query. With the original query from user."""
             query_vector = self.thai2vec.get_embedding(
                 self.text_cleaner.preprocess_text(query)
             )
@@ -43,7 +43,7 @@ class Chatbot:
             return (
                 "\n\n".join(
                     [
-                        f"\nRank: {i+1} from page: {point["payload"]["metadata"]["page"]} \n\n {point["payload"]["page_content"]}"
+                        f"\nRank: {i+1} from page: {point['payload']['metadata']['page']} \n\n {point['payload']['page_content']}"
                         for i, point in enumerate(search_results.model_dump()["points"])
                     ]
                 ),
@@ -69,6 +69,8 @@ class Chatbot:
         """Build the chatbot's workflow graph."""
 
         def query_or_respond(state: MessagesState):
+            global DOCSCONTENT
+            DOCSCONTENT = None
             """Generate tool call for retrieval or respond."""
             llm_with_tools = self.llm.bind_tools([self.retrieve])
             response = llm_with_tools.invoke(state["messages"])

@@ -30,7 +30,7 @@ class Chatbot:
 
         @tool(response_format="content_and_artifact")
         def retrieve(query: str):
-            """Retrieve information related to a query. With the original query from user."""
+            """Retrieve information related to a query."""
             query_vector = self.thai2vec.get_embedding(
                 self.text_cleaner.preprocess_text(query)
             )

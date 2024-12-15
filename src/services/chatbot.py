@@ -40,7 +40,15 @@ class Chatbot:
                 query=query_vector,
                 limit=40,
             )
-            return search_results, search_results
+            return (
+                "\n\n".join(
+                    [
+                        f"\nRank: {i+1} from page: {point["payload"]["metadata"]["page"]} \n\n {point["payload"]["page_content"]}"
+                        for i, point in enumerate(search_results.model_dump()["points"])
+                    ]
+                ),
+                search_results,
+            )
 
         set_llm_cache(InMemoryCache())
 

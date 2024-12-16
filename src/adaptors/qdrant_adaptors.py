@@ -10,8 +10,6 @@ from qdrant_client.models import PointStruct, VectorParams, Distance
 from qdrant_client.http.models import Distance, VectorParams
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from pythainlp import word_vector
-
 from services.text_cleaner import TextCleaner
 from services.thai_to_vec_embedder import Thai2VecEmbedder
 
@@ -43,16 +41,16 @@ class QdrantAdaptor:
         )
         logging.info(f"Collection '{collection_name}' created successfully.")
 
-    def get_or_create_collection(self, collection_name: str, vector_size: int = 300):
+    def create_collection_if_not_exists(self, collection_name: str, vector_size: int = 300):
         """Checks if a collection exists or creates it if not."""
-        get_or_create = self.client.collection_exists(collection_name)
-        if get_or_create:
+        is_exists_collection = self.client.collection_exists(collection_name)
+        if is_exists_collection:
             logging.info(f"Collection '{collection_name}' already exists.")
         else:
             self.create_collection(collection_name, vector_size)
 
         logging.info(f"Vector store initialized for collection '{collection_name}'.")
-        return not get_or_create
+        return is_exists_collection
 
     # Recursive Character Text Splitter
     def add_documents_from_pdf(self, pdf_path: str):
@@ -83,7 +81,7 @@ class QdrantAdaptor:
     def process_documents(self, process_chunks):
         points = []
 
-        for idx, chunk in enumerate(process_chunks):
+        for chunk in process_chunks:
             # Tokenize and generate embeddings for each chunk
             chunk_embedding = self.thai2vec.get_embedding(chunk.page_content)
 

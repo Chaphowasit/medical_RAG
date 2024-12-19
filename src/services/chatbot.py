@@ -1,6 +1,5 @@
 import os
 
-from langchain_openai import OpenAI
 from langgraph.graph import MessagesState, StateGraph, END
 from langgraph.prebuilt import ToolNode, tools_condition
 from langchain_core.messages import SystemMessage
@@ -22,9 +21,6 @@ class Chatbot:
         """Initialize the chatbot with Qdrant adaptor and graph."""
         load_dotenv(override=True)
         self.client = qdrant_client
-        # self.llm = OpenAI(
-        #     temperature=0.5, api_key=os.getenv("OPENAI_API_KEY"), model="gpt-4o-mini"
-        # )
         self.thai2vec = Thai2VecEmbedder()
         self.text_cleaner = TextCleaner()
 
@@ -38,7 +34,7 @@ class Chatbot:
             search_results = self.client.query_points(
                 collection_name="medical",
                 query=query_vector,
-                limit=40,
+                limit=30,
             )
             return (
                 "\n\n".join(
@@ -69,8 +65,6 @@ class Chatbot:
         """Build the chatbot's workflow graph."""
 
         def query_or_respond(state: MessagesState):
-            global DOCSCONTENT
-            DOCSCONTENT = None
             """Generate tool call for retrieval or respond."""
             llm_with_tools = self.llm.bind_tools([self.retrieve])
             response = llm_with_tools.invoke(state["messages"])
@@ -80,7 +74,6 @@ class Chatbot:
 
         def generate(state: MessagesState):
             """Generate answer."""
-            global DOCSCONTENT
             recent_tool_messages = []
             for message in reversed(state["messages"]):
                 if message.type == "tool":
@@ -98,7 +91,7 @@ class Chatbot:
                 "\n\n"
                 f'context: """{docs_content}""" '
             )
-            DOCSCONTENT = docs_content
+            print(docs_content)
             conversation_messages = [
                 message
                 for message in state["messages"]
@@ -108,7 +101,7 @@ class Chatbot:
             prompt = [SystemMessage(system_message_content)] + conversation_messages
             print("prompt msgs:", prompt)
             response = self.llm.invoke(prompt)
-            return {"messages": [response]}
+            return {"messages": [response], "docs_content": docs_content}
 
         graph_builder = StateGraph(MessagesState)
 
@@ -130,12 +123,16 @@ class Chatbot:
     def response(self, query: str):
         """Process a user message through the graph."""
         print("query msgs:", query)
-        for step in self.graph.stream(
+        langchain_graph_step = self.graph.stream(
             {"messages": [{"role": "user", "content": query}]},
             stream_mode="values",
             config=self.config,
-        ):
-            final_message = step["messages"][-1]
-        print("query response:", final_message.content)
-        print("=" * 30)
-        return final_message.content, DOCSCONTENT
+        )
+        last_step = None
+        for step in langchain_graph_step:
+            last_step = step
+
+        final_message = last_step["messages"][-1]
+        docs_content = last_step["messages"][-2]
+        return final_message.content, docs_content.content
+

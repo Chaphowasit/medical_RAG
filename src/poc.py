@@ -3,7 +3,7 @@ from adaptors.qdrant_adaptors import QdrantAdaptor
 from services.chatbot import Chatbot
 
 
-@st.cache_resource
+# @st.cache_resource
 def get_chatbot():
     """
     Initialize and cache the chatbot instance with a QdrantAdaptor.

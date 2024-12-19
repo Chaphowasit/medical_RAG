@@ -1,5 +1,4 @@
 import streamlit as st
-
 from adaptors.qdrant_adaptors import QdrantAdaptor
 from services.chatbot import Chatbot
 
@@ -15,16 +14,21 @@ def get_chatbot():
 
 st.title("Chatbot with RAG")
 
-
 user_text = st.text_area("Enter your query here:", height=200)
 
+# Button to clear cache
+if st.button("Clear Cache"):
+    st.cache_resource.clear()  # Clears the cached chatbot instance
+    st.success("Cache cleared!")
 
+# Button to submit query
 if st.button("Submit"):
     if user_text.strip():
         st.success("Query submitted successfully!")
         st.write("Your query:")
         st.write(user_text)
 
+        # Get the chatbot instance (cached or newly initialized)
         chatbot = get_chatbot()
         response, rag_response = chatbot.response(query=user_text)
 

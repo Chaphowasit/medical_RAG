@@ -12,6 +12,7 @@ from langchain_core.caches import InMemoryCache
 from langchain_core.globals import set_llm_cache
 from qdrant_client import models
 import logging
+from pythainlp import word_vector
 
 # from adaptors.qdrant_adaptors import QdrantAdaptor
 # from adaptors.qdrant_adaptors import NLPTransformation
@@ -22,84 +23,106 @@ from langchain_core.tools import tool
 from dotenv import load_dotenv
 import os
 from langchain.prompts import PromptTemplate
+from adaptors.qdrant_adaptors import Thai2VecEmbedder
 
 
 class Chatbot:
     def __init__(self, adaptor):
         """Initialize the chatbot with Qdrant adaptor and graph."""
         load_dotenv(override=True)
-        self.embeddings = OpenAIEmbeddings(
-            model="text-embedding-3-large", api_key=os.getenv("OPENAI_API_KEY")
-        )
+        # self.embeddings = OpenAIEmbeddings(
+        #     model="text-embedding-3-large", api_key=os.getenv("OPENAI_API_KEY")
+        # )
         self.client = QdrantClient(
             url=os.getenv("QDRANT_URL"),
             api_key=os.getenv("QDRANT_API_KEY"),
         )
-        self.vector_store = QdrantVectorStore(
-            client=self.client,
-            collection_name="medical",
-            embedding=self.embeddings,
-        )
+
         self.llm = OpenAI(temperature=0.5, api_key=os.getenv("OPENAI_API_KEY"))
+        self.thai2vec = Thai2VecEmbedder()
+        # self.vector_store = QdrantVectorStore(
+        #     client=self.client,
+        #     collection_name="medical",
+        #     embedding=self.thai2vec,
+        # )
+
         # @tool(response_format="content_and_artifact")
         # def retrieve(query: str):
         #     """Retrieve and rerank information related to a query."""
 
-        #     retrieved_docs = self.vector_store.similarity_search(query, k=10)
-        #     print("retrieve_docs_len :  ", len(retrieved_docs))
+        #     # Get the query embedding
+        #     query_embedding = self.thai2vec.get_query_embedding(query)
 
-        #     search_results = [
-        #         {
-        #             "metadata": doc.metadata,
-        #             "page_content": doc.page_content,
-        #             "keywords": self.nlp_class.extract_keywords(doc.page_content),
-        #         }
-        #         for doc in retrieved_docs
-        #     ]
+        #     if query_embedding is None:
+        #         return "Query embedding could not be generated.", []
 
-        #     # reranked_results = self.rerank_documents(query, search_results, top_k=5)
+        #     # Perform similarity search with the embedded query
+        #     retrieved_docs = self.vector_store.similarity_search_by_vector(
+        #         query_embedding, k=10
+        #     )
 
+        #     print("retrieve_docs_len:", len(retrieved_docs))
+
+        #     # Format the retrieved documents for display
         #     serialized = "\n\n".join(
-        #         (f"Source: {doc['metadata']}\n" f"Content: {doc['page_content']}")
+        #         (f"Source: {doc.metadata}\n" f"Content: {doc.page_content}")
         #         for doc in retrieved_docs
         #     )
 
         #     return serialized, retrieved_docs
+
         @tool(response_format="content_and_artifact")
         def retrieve(query: str):
             """Retrieve information related to a query."""
-            # query = str(self.llm(self.prompt.format(query=query)))
-            retriever = self.vector_store.as_retriever(
-                search_type="similarity_score_threshold",
-                search_kwargs={"score_threshold": 0.3},
+            query_vector = self.thai2vec.get_query_embedding(query)
+            print("query query : ", query)
+            search_results = self.client.query_points(
+                collection_name="medical",
+                query=query_vector,
+                limit=10,
             )
-            llm = ChatOpenAI(
-                model="gpt-4o", temperature=0, api_key=os.getenv("OPENAI_API_KEY")
-            )
-            _filter = LLMListwiseRerank.from_llm(llm, top_n=20)
-            # compressor = LLMChainExtractor.from_llm(llm)
-            compression_retriever = ContextualCompressionRetriever(
-                base_compressor=_filter, base_retriever=retriever
-            )
-            compressed_docs = compression_retriever.invoke(query, fetch_k=300)
-            # retrieved_docs = self.vector_store.similarity_search(
-            #     query,
-            #     k=20,
-            #     # filter=models.Filter(
-            #     #     should=[
-            #     #         models.FieldCondition(
-            #     #             key="metadata",
-            #     #             match=models.MatchValue(value=query),
-            #     #         ),
-            #     #     ]
-            #     # ),
+            # serialized = "\n\n".join(
+            #     (f"Source: {doc['metadata']}\n" f"Content: {doc['page_content']}")
+            #     for doc in search_results
             # )
-            print("retrieve_docs_len : ", len(compressed_docs))
-            serialized = "\n\n".join(
-                (f"Source {i+1} : {doc.metadata}\n" f"Content: {doc.page_content}")
-                for i, doc in enumerate(compressed_docs)
-            )
-            return serialized, compressed_docs
+            return search_results, search_results
+
+        #     return serialized, retrieved_docs
+        # @tool(response_format="content_and_artifact")
+        # def retrieve(query: str):
+        #     """Retrieve information related to a query."""
+        #     # query = str(self.llm(self.prompt.format(query=query)))
+        #     retriever = self.vector_store.as_retriever(
+        #         search_type="similarity_score_threshold",
+        #         search_kwargs={"score_threshold": 0.3},
+        #     )
+        #     llm = ChatOpenAI(
+        #         model="gpt-4o", temperature=0, api_key=os.getenv("OPENAI_API_KEY")
+        #     )
+        #     _filter = LLMListwiseRerank.from_llm(llm, top_n=20)
+        #     # compressor = LLMChainExtractor.from_llm(llm)
+        #     compression_retriever = ContextualCompressionRetriever(
+        #         base_compressor=_filter, base_retriever=retriever
+        #     )
+        #     compressed_docs = compression_retriever.invoke(query, fetch_k=300)
+        # retrieved_docs = self.vector_store.similarity_search(
+        #     query,
+        #     k=20,
+        #     # filter=models.Filter(
+        #     #     should=[
+        #     #         models.FieldCondition(
+        #     #             key="metadata",
+        #     #             match=models.MatchValue(value=query),
+        #     #         ),
+        #     #     ]
+        #     # ),
+        # )
+        # print("retrieve_docs_len : ", len(compressed_docs))
+        # serialized = "\n\n".join(
+        #     (f"Source {i+1} : {doc.metadata}\n" f"Content: {doc.page_content}")
+        #     for i, doc in enumerate(compressed_docs)
+        # )
+        # return serialized, compressed_docs
 
         set_llm_cache(InMemoryCache())
 
@@ -135,22 +158,23 @@ class Chatbot:
         """Build the chatbot's workflow graph."""
 
         def query_or_respond(state: MessagesState):
+            logging.info(f"messageasdfasfasfdasfasfa: {state["messages"]}")
             """Generate tool call for retrieval or respond."""
             llm_with_tools = self.llm.bind_tools([self.retrieve])
             response = llm_with_tools.invoke(state["messages"])
-
+            print(f"messageasdfasfasfdasfasfa: {state["messages"]}")
             return {"messages": [response]}
 
         tools = ToolNode([self.retrieve])
 
-        def refine_query(state: MessagesState):
-            prompt = PromptTemplate(
-                input_variables=["query"],
-                template="Rewrite this query to be more specific and useful for a search engine: {query} in thai language",
-            )
-            refined_query = self.llm(prompt.format(query=state["messages"]))
-            logging.info(refined_query)
-            return refined_query
+        # def refine_query(state: MessagesState):
+        #     prompt = PromptTemplate(
+        #         input_variables=["query"],
+        #         template="Rewrite this query to be more specific and useful for a search engine: {query} in thai language",
+        #     )
+        #     refined_query = self.llm(prompt.format(query=state["messages"]))
+        #     logging.info(refined_query)
+        #     return refined_query
 
         def generate(state: MessagesState):
             """Generate answer."""
@@ -187,12 +211,13 @@ class Chatbot:
         graph_builder = StateGraph(MessagesState)
 
         graph_builder.add_node(query_or_respond)
-        graph_builder.add_node(refine_query)
+        # graph_builder.add_node(refine_query)
         graph_builder.add_node(tools)
         graph_builder.add_node(generate)
 
-        graph_builder.set_entry_point("refine_query")
-        graph_builder.add_edge("refine_query", "query_or_respond")
+        # graph_builder.set_entry_point("refine_query")
+        # graph_builder.add_edge("refine_query", "query_or_respond")
+        graph_builder.set_entry_point("query_or_respond")
         graph_builder.add_conditional_edges(
             "query_or_respond",
             tools_condition,

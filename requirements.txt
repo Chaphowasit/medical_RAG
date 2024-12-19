@@ -1,0 +1,16 @@
+qdrant-client
+langchain_community 
+pypdf
+langchain-qdrant 
+langchain-openai
+python-dotenv
+fastapi
+python-multipart
+uvicorn
+langgraph
+langchain_core
+langchain-text-splitters
+pythainlp
+uuid
+streamlit
+gensim

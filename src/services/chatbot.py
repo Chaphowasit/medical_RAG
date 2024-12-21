@@ -34,7 +34,7 @@ class Chatbot:
             search_results = self.client.query_points(
                 collection_name="medical",
                 query=query_vector,
-                limit=30,
+                limit=40,
             )
             return (
                 "\n\n".join(

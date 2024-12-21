@@ -18,6 +18,14 @@ langchain = "^0.3.10"
 langgraph = "^0.2.56"
 pythainlp = "^5.0.5"
 gensim = "^4.3.3"
+typing-extensions = "^4.12.2"
+pydantic = "^2.10.4"
+fastapi = "^0.115.6"
+python-multipart = "^0.0.20"
+uvicorn = "^0.34.0"
+langchain-core = "^0.3.28"
+langchain-text-splitters = "^0.3.4"
+uuid = "^1.30"
 
 
 [build-system]

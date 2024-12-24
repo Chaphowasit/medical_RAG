@@ -34,7 +34,7 @@ class Chatbot:
             search_results = self.client.query_points(
                 collection_name="medical",
                 query=query_vector,
-                limit=40,
+                limit=30,
             )
             return (
                 "\n\n".join(
@@ -135,4 +135,3 @@ class Chatbot:
         final_message = last_step["messages"][-1]
         docs_content = last_step["messages"][-2]
         return final_message.content, docs_content.content
-

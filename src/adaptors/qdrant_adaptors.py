@@ -41,7 +41,9 @@ class QdrantAdaptor:
         )
         logging.info(f"Collection '{collection_name}' created successfully.")
 
-    def create_collection_if_not_exists(self, collection_name: str, vector_size: int = 300):
+    def create_collection_if_not_exists(
+        self, collection_name: str, vector_size: int = 300
+    ):
         """Checks if a collection exists or creates it if not."""
         is_exists_collection = self.client.collection_exists(collection_name)
         if is_exists_collection:

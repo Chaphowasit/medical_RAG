@@ -26,6 +26,7 @@ uvicorn = "^0.34.0"
 langchain-core = "^0.3.28"
 langchain-text-splitters = "^0.3.4"
 uuid = "^1.30"
+websockets = "^14.1"
 
 
 [build-system]

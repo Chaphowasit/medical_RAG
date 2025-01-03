@@ -150,7 +150,7 @@ from dotenv import load_dotenv
 import os
 from adaptors.qdrant_adaptors import Thai2VecEmbedder
 import asyncio
-
+import uuid
 
 class Chatbot:
     def __init__(self, adaptor):
@@ -172,7 +172,7 @@ class Chatbot:
             search_results = self.client.query_points(
                 collection_name="medical",
                 query=query_vector,
-                limit=40,
+                limit=1,
             )
             return search_results, search_results
 
@@ -181,7 +181,6 @@ class Chatbot:
         self.llm = ChatOpenAI(model="gpt-4o", max_tokens=8000)
         self.memory = MemorySaver()
         self.graph = self._build_graph(self.memory)
-        self.config = {"configurable": {"thread_id": "abc123"}}
 
     def _build_graph(self, memory):
         """Build the chatbot's workflow graph."""
@@ -236,10 +235,6 @@ class Chatbot:
         graph_builder.add_edge("generate", END)
         return graph_builder.compile(checkpointer=memory)
 
-    # async def stream_response(self, query: str):
-    #     """Stream a user message through the graph in chunks."""
-    #     async for chunk in self.llm.astream(query):
-    #         yield chunk.content
     async def async_wrapper(self, generator):
         for item in generator:
             yield item
@@ -248,14 +243,16 @@ class Chatbot:
     async def stream_response(self, query: str):
         """Process a user message through the graph."""
         print("query msgs:", query)
+        config = {"thread_id": str(uuid.uuid4())} 
         langchain_graph_step = self.async_wrapper(
             self.graph.stream(
                 {"messages": [{"role": "user", "content": query}]},
                 stream_mode="messages",
-                config=self.config,
+                config=config,
             )
         )
 
         async for message, metadata in langchain_graph_step:
-            if metadata["langgraph_node"] == "generate":
+
+            if metadata["langgraph_node"] == "generate" or metadata["langgraph_node"] == "query_or_respond":
                 yield message.content

@@ -16,7 +16,7 @@ from services.thai_to_vec_embedder import Thai2VecEmbedder
 
 
 class QdrantAdaptor:
-    def __init__(self, collection_name, vector_size = 300):
+    def __init__(self, collection_name):
         """Initialize the QdrantAdaptor, load environment variables, and configure logging."""
         load_dotenv(override=True)
         logging.basicConfig(level=logging.INFO)
@@ -35,7 +35,7 @@ class QdrantAdaptor:
         self.text_cleaner = TextCleaner()
         
         self.collection_name = collection_name
-        self.vector_size = vector_size
+        self.vector_size = 300
         self.create_collection_if_not_exists(self.vector_size)
 
     def create_collection(self, vector_size):
@@ -154,7 +154,6 @@ class QdrantAdaptor:
             )
             
             point_ids_to_delete = [point.id for point in points_to_delete[0] if point.payload.get("metadata").get("source") == file_path]
-            print(len(point_ids_to_delete), point_ids_to_delete)
 
             if point_ids_to_delete :
                 self.client.delete(

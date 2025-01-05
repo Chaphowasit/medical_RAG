@@ -4,3 +4,5 @@ data/**.pdf
 
 venv/**
 myenv/**
+
+src/**/__pycache__/

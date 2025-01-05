@@ -14,3 +14,4 @@ pythainlp
 uuid
 streamlit
 gensim
+websockets

@@ -19,12 +19,11 @@ class Thai2VecEmbedder:
                 avg_embedding = np.mean(word_embeddings, axis=0)
                 embeddings.append(avg_embedding)
             else:
-                embeddings.append(None)  # In case no words are found in the model
+                embeddings.append(None)
         return embeddings
 
     def get_embedding(self, query: str):
         tokens = word_tokenize(query)
-        # Average word embeddings of tokens in the query
         embeddings = [self.model[token] for token in tokens if token in self.model]
         if embeddings:
             return np.mean(embeddings, axis=0)

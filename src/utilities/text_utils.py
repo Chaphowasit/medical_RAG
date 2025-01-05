@@ -3,15 +3,18 @@ import unicodedata
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+
 def text_splitter(docs: str):
+    """Split a blog post into sub-documents using RecursiveCharacterTextSplitter."""
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,  # chunk size (characters)
-        chunk_overlap=200,  # chunk overlap (characters)
-        add_start_index=True,  # track index in original document
+        chunk_size=1000,
+        chunk_overlap=200,
+        add_start_index=True,
     )
     all_splits = text_splitter.split_documents(docs)
 
     print(f"Split blog post into {len(all_splits)} sub-documents.")
+
 
 def thai_to_arabic(text: str) -> str:
     """Converts Thai numerals in a string to Arabic numerals."""
@@ -30,7 +33,5 @@ def remove_unimportant_word(text: str) -> str:
     text = re.sub(r"[\n\r\t]+", "", text)
     text = re.sub(r"\s+", "", text).strip()
     text = re.sub(r"\([a-zA-Zก-ฮ]\)", "", text)
-    text = re.sub(
-        r"([\u0E01-\u0E2E])\s+([\u0E30-\u0E39\u0E47-\u0E4F])", r"\1\2", text
-    )
+    text = re.sub(r"([\u0E01-\u0E2E])\s+([\u0E30-\u0E39\u0E47-\u0E4F])", r"\1\2", text)
     return text

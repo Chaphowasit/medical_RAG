@@ -94,7 +94,7 @@ async def create_file(file: UploadFile = File(...)):
     """
     try:
         # Define the directory to store files
-        data_dir = "src\\data\\"
+        data_dir = ".\\data\\"
         os.makedirs(data_dir, exist_ok=True)
 
         # Save the uploaded file to the data directory
@@ -140,7 +140,7 @@ async def delete_file(filename: str):
     """
     try:
         # Construct the full path
-        file_path = f"src\\data\\{filename}"
+        file_path = f".\\data\\{filename}"
 
         # Delete file from the collection
         qdrant_adaptor.delete_file(file_path)

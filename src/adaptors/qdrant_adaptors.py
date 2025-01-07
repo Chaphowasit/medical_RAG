@@ -189,7 +189,7 @@ class QdrantAdaptor:
 
             if count == 0:
                 logging.warning(f"No points found in Qdrant Collection.")
-                return
+                return []
 
             points = self.client.scroll(
                 collection_name=self.collection_name,
@@ -201,7 +201,7 @@ class QdrantAdaptor:
                 [point.payload.get("metadata").get("source") for point in points[0]]
             )
             logging.info(f"file_path in Qdrant metadata: {file_path}")
-            return file_path
+            return list(file_path)
         except Exception as e:
             logging.error(f"Error retrieving file_path from Qdrant metadata: {e}")
             return []

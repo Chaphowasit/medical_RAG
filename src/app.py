@@ -1,4 +1,5 @@
-from fastapi import FastAPI, WebSocket
+import os
+from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket
 from adaptors.qdrant_adaptors import QdrantAdaptor
 from services.chatbot import Chatbot
 from starlette.websockets import WebSocketDisconnect
@@ -79,3 +80,80 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         print(f"Error: {e}")
         manager.disconnect(websocket)
+
+@app.post("/files/create")
+async def create_file(file: UploadFile = File(...)):
+    """
+    API endpoint to upload and create a file in the collection.
+
+    Args:
+        file (UploadFile): The file to be uploaded and added.
+
+    Returns:
+        dict: Success message if the file is added successfully.
+    """
+    try:
+        # Define the directory to store files
+        data_dir = "src\\data\\"
+        os.makedirs(data_dir, exist_ok=True)
+
+        # Save the uploaded file to the data directory
+        file_path = os.path.join(data_dir, file.filename)
+        with open(file_path, "wb") as f:
+            f.write(await file.read())
+
+        # Use the adaptor to add the file to the collection
+        qdrant_adaptor.create_file(file_path)
+
+        return {"message": f"File '{file.filename}' added to collection."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating file: {e}")
+
+
+@app.get("/files/list")
+async def list_files():
+    """
+    API endpoint to list all files in the collection.
+
+    Returns:
+        dict: List of filenames in the collection.
+    """
+    try:
+        filenames = qdrant_adaptor.list_file_path()
+        # Extract only the filenames from paths
+        filenames = [os.path.basename(filename) for filename in filenames]
+        return {"filenames": filenames}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing files: {e}")
+
+
+@app.delete("/files/delete")
+async def delete_file(filename: str):
+    """
+    API endpoint to delete a file from the collection and remove it from local storage.
+
+    Args:
+        filename (str): Name of the file to be deleted.
+
+    Returns:
+        dict: Success message if the file is deleted successfully.
+    """
+    try:
+        # Construct the full path
+        file_path = f"src\\data\\{filename}"
+
+        # Delete file from the collection
+        qdrant_adaptor.delete_file(file_path)
+
+        # Check if file still exists in the collection
+        filenames_after_deletion = qdrant_adaptor.list_file_path()
+        if file_path in filenames_after_deletion:
+            raise HTTPException(status_code=500, detail=f"File '{filename}' could not be deleted from the collection.")
+
+        # Remove the file from local storage
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+        return {"message": f"File '{filename}' deleted from collection and local storage."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting file: {e}")

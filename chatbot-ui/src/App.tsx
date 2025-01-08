@@ -4,7 +4,7 @@ import Chatbot from "./components/Chatbot";
 import FileManager from "./components/FileManager";
 
 function App() {
-  const [selectedTab, setSelectedTab] = useState<string>("FileManager");
+  const [selectedTab, setSelectedTab] = useState<string>("Chatbot");
 
   const renderContent = () => {
     switch (selectedTab) {
@@ -51,20 +51,7 @@ function App() {
           Navigator
         </Typography>
         <List>
-          <ListItem disablePadding>
-            <ListItemButton
-              selected={selectedTab === "FileManager"}
-              onClick={() => setSelectedTab("FileManager")}
-              sx={{
-                backgroundColor: selectedTab === "FileManager" ? "rgba(255, 255, 255, 0.2)" : "inherit",
-                "&:hover": {
-                  backgroundColor: "rgba(255, 255, 255, 0.1)",
-                },
-              }}
-            >
-              <ListItemText primary="File Manager" />
-            </ListItemButton>
-          </ListItem>
+          
           <ListItem disablePadding>
             <ListItemButton
               selected={selectedTab === "Chatbot"}
@@ -77,6 +64,20 @@ function App() {
               }}
             >
               <ListItemText primary="Chatbot" />
+            </ListItemButton>
+          </ListItem>
+          <ListItem disablePadding>
+            <ListItemButton
+              selected={selectedTab === "FileManager"}
+              onClick={() => setSelectedTab("FileManager")}
+              sx={{
+                backgroundColor: selectedTab === "FileManager" ? "rgba(255, 255, 255, 0.2)" : "inherit",
+                "&:hover": {
+                  backgroundColor: "rgba(255, 255, 255, 0.1)",
+                },
+              }}
+            >
+              <ListItemText primary="File Manager" />
             </ListItemButton>
           </ListItem>
         </List>

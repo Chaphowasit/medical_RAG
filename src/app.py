@@ -1,3 +1,4 @@
+import json
 import os
 from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket
 from adaptors.qdrant_adaptors import QdrantAdaptor
@@ -7,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Create a FastAPI instance
 app = FastAPI()
-qdrant_adaptor = QdrantAdaptor("medical")
+qdrant_adaptor = QdrantAdaptor("law")
 qrant_client = qdrant_adaptor.client
 chatbot = Chatbot(qrant_client)
 
@@ -56,7 +57,7 @@ class ConnectionManager:
             message (str): The message to send.
             websocket (WebSocket): The WebSocket connection to send the message to.
         """
-        await websocket.send_text(message)
+        await websocket.send_json(message)
 
 
 # Create a ConnectionManager instance to manage WebSocket connections
@@ -72,14 +73,19 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             user_message = await websocket.receive_text()
             print(f"Received message: {user_message}")
-            async for response in chatbot.stream_response(user_message):
-                await manager.send_personal_message(response, websocket)
+            async for response, source, filename in chatbot.stream_response(
+                user_message
+            ):
+                result = {"response": response, "source": source, "filename": filename}
+                # print(result)
+                await manager.send_personal_message(result, websocket)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         print("Client disconnected")
     except Exception as e:
         print(f"Error: {e}")
         manager.disconnect(websocket)
+
 
 @app.post("/files/create")
 async def create_file(file: UploadFile = File(...)):
@@ -148,12 +154,17 @@ async def delete_file(filename: str):
         # Check if file still exists in the collection
         filenames_after_deletion = qdrant_adaptor.list_file_path()
         if file_path in filenames_after_deletion:
-            raise HTTPException(status_code=500, detail=f"File '{filename}' could not be deleted from the collection.")
+            raise HTTPException(
+                status_code=500,
+                detail=f"File '{filename}' could not be deleted from the collection.",
+            )
 
         # Remove the file from local storage
         if os.path.exists(file_path):
             os.remove(file_path)
 
-        return {"message": f"File '{filename}' deleted from collection and local storage."}
+        return {
+            "message": f"File '{filename}' deleted from collection and local storage."
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting file: {e}")

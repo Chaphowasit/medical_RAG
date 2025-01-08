@@ -6,19 +6,21 @@ import {
   Paper,
   Divider,
   IconButton,
+  CircularProgress,
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 import ReactMarkdown from "react-markdown";
 
 interface Messages {
   user: string[];
-  bot: string[];
+  bot: { message: string; source: string }[];
 }
 
 const Chatbot = () => {
   const [messages, setMessages] = useState<Messages>({ user: [], bot: [] });
   const [input, setInput] = useState<string>("");
   const [ws, setWs] = useState<WebSocket | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -29,15 +31,30 @@ const Chatbot = () => {
     };
 
     websocket.onmessage = (event) => {
-      setMessages((prevMessages) => {
-        const botMessages = [...prevMessages.bot];
-        botMessages[botMessages.length - 1] =
-          (botMessages[botMessages.length - 1] || "") + event.data;
-        return {
-          ...prevMessages,
-          bot: botMessages,
-        };
-      });
+      try {
+        // Parse the response JSON
+        const data = JSON.parse(event.data);
+
+        // Extract relevant response fields
+        const botMessage = data.response || "";
+        const botSource = data.source || "";
+
+        setMessages((prevMessages) => {
+          const botMessages = [...prevMessages.bot];
+          botMessages[botMessages.length - 1] = {
+            message: (botMessages[botMessages.length - 1]?.message || "") + botMessage,
+            source: botSource,
+          };
+          return {
+            ...prevMessages,
+            bot: botMessages,
+          };
+        });
+
+        setLoading(false); // Stop animation when response is received
+      } catch (error) {
+        console.error("Error parsing WebSocket message:", error);
+      }
     };
 
     websocket.onerror = (error) => {
@@ -59,13 +76,12 @@ const Chatbot = () => {
     if (input.trim() !== "") {
       setMessages((prevMessages) => ({
         user: [...prevMessages.user, input],
-        bot: [...prevMessages.bot, ""],
+        bot: [...prevMessages.bot, { message: "", source: "" }],
       }));
       ws?.send(input);
       setInput("");
+      setLoading(true); // Start animation
       scrollToBottom();
-    } else {
-      alert("Please enter a message.");
     }
   };
 
@@ -77,12 +93,19 @@ const Chatbot = () => {
     scrollToBottom();
   }, [messages]);
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
   return (
     <Box
       sx={{
         display: "flex",
         flexDirection: "column",
-        height: "100vh", // Full screen height
+        height: "100%",
         backgroundColor: "#242424",
         color: "rgba(255, 255, 255, 0.87)",
       }}
@@ -104,8 +127,8 @@ const Chatbot = () => {
       {/* Scrollable Conversation Section */}
       <Paper
         sx={{
-          flex: 1, // Takes available space
-          overflowY: "auto", // Only this section scrolls
+          flex: 1,
+          overflowY: "auto",
           padding: 2,
           display: "flex",
           flexDirection: "column",
@@ -115,6 +138,7 @@ const Chatbot = () => {
       >
         {messages.user.map((message, index) => (
           <React.Fragment key={index}>
+            {/* User message */}
             <Box
               sx={{
                 alignSelf: "flex-end",
@@ -128,6 +152,8 @@ const Chatbot = () => {
             >
               <ReactMarkdown>{message}</ReactMarkdown>
             </Box>
+
+            {/* Bot message */}
             <Box
               sx={{
                 alignSelf: "flex-start",
@@ -137,9 +163,22 @@ const Chatbot = () => {
                 padding: 1,
                 maxWidth: "70%",
                 wordWrap: "break-word",
+                display: "flex",
+                flexDirection: "column",
               }}
             >
-              <ReactMarkdown>{messages.bot[index]}</ReactMarkdown>
+              {index === messages.user.length - 1 && loading ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <ReactMarkdown>{messages.bot[index]?.message}</ReactMarkdown>
+              )}
+              <Divider sx={{ backgroundColor: "rgba(255, 255, 255, 0.2)", marginY: 0.5 }} />
+              <Typography
+                variant="caption"
+                sx={{ alignSelf: "flex-end", color: "rgba(255, 255, 255, 0.6)" }}
+              >
+                Source: {messages.bot[index]?.source || "Unknown"}
+              </Typography>
             </Box>
           </React.Fragment>
         ))}
@@ -165,6 +204,7 @@ const Chatbot = () => {
           fullWidth
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
           InputProps={{
             style: { color: "white" },
             disableUnderline: true,

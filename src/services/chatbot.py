@@ -7,7 +7,6 @@ from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.caches import InMemoryCache
 from langchain_core.globals import set_llm_cache
-from qdrant_client import QdrantClient
 from langchain_core.tools import tool
 from dotenv import load_dotenv
 import os
@@ -18,27 +17,54 @@ from langchain_core.documents import Document
 
 
 class State(MessagesState):
+    """
+    Represents the state of the chatbot, holding context as a list of documents.
+
+    Attributes:
+        context (List[Document]): A list of documents representing the context of the chatbot's current state.
+    """
     context: List[Document] = []
 
 
 class Chatbot:
-    def __init__(self, adaptor):
-        """Initialize the chatbot with Qdrant adaptor and graph."""
+    """
+    A class that implements a chatbot powered by LLMs (Large Language Models) to interact with a user and provide legal information.
+
+    The chatbot retrieves legal information from a database using Qdrant and interacts with users using a defined workflow graph.
+
+    Args:
+        client: The Qdrant client instance used to query the Qdrant database.
+        collection_name: The name of the collection in Qdrant from which legal information will be retrieved.
+    """
+    def __init__(self, client, collection_name):
+        """
+        Initializes the chatbot with the required Qdrant client, LLM, embedding model, and workflow graph.
+
+        Args:
+            client: The Qdrant client instance used to query the Qdrant database.
+            collection_name: The name of the collection in Qdrant to retrieve legal information from.
+        """
         load_dotenv(override=True)
 
-        self.client = QdrantClient(
-            url=os.getenv("QDRANT_URL"),
-            api_key=os.getenv("QDRANT_API_KEY"),
-        )
+        self.client = client
         self.llm = OpenAI(temperature=0.5, api_key=os.getenv("OPENAI_API_KEY"))
         self.thai2vec = Thai2VecEmbedder()
+        self.collection_name = collection_name
 
         @tool(response_format="content_and_artifact")
         def retrieve(query: str):
-            """Retrieve information related to a query."""
+            """
+            Retrieve information relevant to the specified query within the law domain.
+
+            Args:
+                query (str): The query provided by the user to retrieve information.
+
+            Returns:
+                tuple: A tuple containing the serialized documents and the list of retrieved documents.
+            """
             query_vector = self.thai2vec.get_embedding(query)
             search_results = self.client.query_points(
-                collection_name="law",
+                collection_name=self.collection_name,
                 query=query_vector,
                 limit=10,
             ).points
@@ -51,21 +77,49 @@ class Chatbot:
                 for point in search_results
             ]
 
-            serialized = "\n\n".join(doc.page_content for doc in retrieved_docs)
+            serialized = "\n\n".join(
+                f"--- Document Start ---\n"
+                f"Page Content:\n{doc.page_content}\n\n"
+                f"Metadata:\n{doc.metadata}\n"
+                f"--- Document End ---"
+                for doc in retrieved_docs
+            )
             return serialized, retrieved_docs
 
         set_llm_cache(InMemoryCache())
         self.retrieve = retrieve
         self.llm = ChatOpenAI(model="gpt-4o", max_tokens=8000)
         self.memory = MemorySaver()
+        self.config = {"configurable":{"thread_id": str(uuid.uuid4())}}
         self.graph = self._build_graph(self.memory)
         self.metadata = None
 
     def _build_graph(self, memory):
-        """Build the chatbot's workflow graph."""
+        """
+        Build the chatbot's workflow graph which manages how messages are processed.
 
+        This function defines the different nodes and how they interact to generate the chatbot's response.
+
+        Args:
+            memory (MemorySaver): The memory manager to save and restore state across graph executions.
+
+        Returns:
+            StateGraph: The compiled workflow graph that controls the chatbot's behavior.
+        """
         def query_or_respond(state: State):
-            """Generate tool call for retrieval or respond."""
+            """
+            Generate tool call for retrieval or respond with a Thai-only response.
+
+            Args:
+                state (State): The current state containing "messages" to be processed.
+
+            Returns:
+                dict: A dictionary containing the "messages" with a Thai-only response.
+            """
+            thai_prompt = (
+                "Respond only in Thai, regardless of the language of the received message, and use male pronouns and speech style."
+            )
+            state["messages"].insert(0, {"role": "system", "content": thai_prompt})
             llm_with_tools = self.llm.bind_tools([self.retrieve])
             response = llm_with_tools.invoke(state["messages"])
             return {"messages": [response]}
@@ -73,7 +127,15 @@ class Chatbot:
         tools = ToolNode([self.retrieve])
 
         def generate(state: State):
-            """Generate answer."""
+            """
+            Generate an answer based on the context and the query.
+
+            Args:
+                state (State): The current state containing "messages" to be processed.
+
+            Returns:
+                dict: A dictionary containing the "messages" with a generated response.
+            """
             recent_tool_messages = []
             for message in reversed(state["messages"]):
                 if message.type == "tool":
@@ -94,8 +156,9 @@ class Chatbot:
                     context[source].add(page)
 
             for key in context:
-                context[key] = list(context[key])
+                context[key] = sorted([element + 1 for element in context[key]])
             self.metadata = context
+
             system_message_content = (
                 "You are an assistant for question-answering tasks. "
                 "Use the provided context to respond clearly, accurately, and do not exceed 80 words in Thai. "
@@ -106,6 +169,7 @@ class Chatbot:
                 "\n\n"
                 f'context: """{docs_content}""" '
             )
+
             conversation_messages = [
                 message
                 for message in state["messages"]
@@ -133,25 +197,41 @@ class Chatbot:
         return graph_builder.compile(checkpointer=memory)
 
     async def async_wrapper(self, generator):
-        """Wrap a generator to allow for async iteration."""
+        """
+        Wrap a generator to allow for async iteration.
+
+        Args:
+            generator: The generator to be wrapped for async iteration.
+
+        Yields:
+            item: Each item yielded by the generator, asynchronously.
+        """
         for item in generator:
             yield item
             await asyncio.sleep(0)
 
     async def stream_response(self, query: str):
-        """Process a user message through the graph."""
+        """
+        Process a user message through the graph and yield results in real-time.
+
+        Args:
+            query (str): The user input message for the chatbot to process.
+
+        Yields:
+            tuple: A tuple containing the response content, source (either "RAG" or "LLM"), and metadata.
+        """
         print("query message :", query)
-        config = {"thread_id": str(uuid.uuid4())}
+
         langchain_graph_step = self.async_wrapper(
             self.graph.stream(
                 {"messages": [{"role": "user", "content": query}]},
                 stream_mode="messages",
-                config=config,
+                config=self.config,
             )
         )
 
         async for message, metadata in langchain_graph_step:
             if metadata["langgraph_node"] == "generate":
-                yield message.content, "RAG and " + str(self.metadata), self.metadata
+                yield message.content, "RAG", str(self.metadata)
             elif metadata["langgraph_node"] == "query_or_respond":
                 yield message.content, "LLM", None

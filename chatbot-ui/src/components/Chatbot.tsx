@@ -13,7 +13,7 @@ import ReactMarkdown from "react-markdown";
 
 interface Messages {
   user: string[];
-  bot: { message: string; source: string }[];
+  bot: { message: string; source: string; filename: string }[];
 }
 
 const Chatbot = () => {
@@ -24,7 +24,7 @@ const Chatbot = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const websocket = new WebSocket("ws://localhost:8000/chatbot");
+    const websocket = new WebSocket("ws://"+ import.meta.env.VITE_API_URL +"/api/chatbot");
 
     websocket.onopen = () => {
       console.log("WebSocket connection established.");
@@ -38,12 +38,14 @@ const Chatbot = () => {
         // Extract relevant response fields
         const botMessage = data.response || "";
         const botSource = data.source || "";
+        const botFilename = data.filename || "";
 
         setMessages((prevMessages) => {
           const botMessages = [...prevMessages.bot];
           botMessages[botMessages.length - 1] = {
             message: (botMessages[botMessages.length - 1]?.message || "") + botMessage,
             source: botSource,
+            filename: botFilename,
           };
           return {
             ...prevMessages,
@@ -76,7 +78,7 @@ const Chatbot = () => {
     if (input.trim() !== "") {
       setMessages((prevMessages) => ({
         user: [...prevMessages.user, input],
-        bot: [...prevMessages.bot, { message: "", source: "" }],
+        bot: [...prevMessages.bot, { message: "", source: "", filename: "" }],
       }));
       ws?.send(input);
       setInput("");
@@ -175,9 +177,15 @@ const Chatbot = () => {
               <Divider sx={{ backgroundColor: "rgba(255, 255, 255, 0.2)", marginY: 0.5 }} />
               <Typography
                 variant="caption"
-                sx={{ alignSelf: "flex-end", color: "rgba(255, 255, 255, 0.6)" }}
+                sx={{ alignSelf: "flex-start", color: "rgba(255, 255, 255, 0.6)" }}
               >
                 Source: {messages.bot[index]?.source || "Unknown"}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{ alignSelf: "flex-start", color: "rgba(255, 255, 255, 0.6)" }}
+              >
+                Filename/Pages: {messages.bot[index]?.filename || "Unknown"}
               </Typography>
             </Box>
           </React.Fragment>

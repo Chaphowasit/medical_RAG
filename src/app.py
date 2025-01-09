@@ -1,16 +1,21 @@
 import json
 import os
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket
 from adaptors.qdrant_adaptors import QdrantAdaptor
 from services.chatbot import Chatbot
 from starlette.websockets import WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 # Create a FastAPI instance
 app = FastAPI()
-qdrant_adaptor = QdrantAdaptor("law")
+load_dotenv(override=True)
+collection_name = os.getenv("COLLECTION_NAME")
+
+qdrant_adaptor = QdrantAdaptor(collection_name)
 qrant_client = qdrant_adaptor.client
-chatbot = Chatbot(qrant_client)
+chatbot = Chatbot(qrant_client, collection_name)
 
 # Add CORS middleware to allow cross-origin requests
 origins = [
@@ -25,34 +30,50 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount the Vite build directory to serve static files
+app.mount("/static", StaticFiles(directory="dist", html=True), name="static")
 
-# Define the WebSocket endpoint for chatbot connections
 class ConnectionManager:
-    """Class defining socket events for managing WebSocket connections."""
+    """
+    Class for managing WebSocket connections.
+
+    This class handles connecting, disconnecting, and sending messages to WebSocket clients.
+    """
 
     def __init__(self):
-        """Initialize the manager with an empty list of active connections."""
+        """
+        Initialize the ConnectionManager with an empty list of active connections.
+
+        Attributes:
+            active_connections (list): List of active WebSocket connections.
+        """
         self.active_connections = []
 
     async def connect(self, websocket: WebSocket):
-        """Handle a new connection and accept the WebSocket.
+        """
+        Accept a new WebSocket connection and add it to the active connections list.
+
         Args:
-            websocket (WebSocket): The WebSocket connection to accept.
+            websocket (WebSocket): The WebSocket connection to be accepted.
         """
         await websocket.accept()
         self.active_connections.append(websocket)
         print(f"New connection. Total connections: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
-        """Handle a disconnection by removing the WebSocket from the list.
+        """
+        Remove a WebSocket connection from the active connections list.
+
         Args:
-            websocket (WebSocket): The WebSocket connection to disconnect.
+            websocket (WebSocket): The WebSocket connection to be removed.
         """
         self.active_connections.remove(websocket)
         print(f"Connection closed. Total connections: {len(self.active_connections)}")
 
     async def send_personal_message(self, message: str, websocket: WebSocket):
-        """Send a personal message to a specific WebSocket connection.
+        """
+        Send a personal message to a specific WebSocket connection.
+
         Args:
             message (str): The message to send.
             websocket (WebSocket): The WebSocket connection to send the message to.
@@ -64,10 +85,14 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-# Define the WebSocket endpoint for chatbot connections
-@app.websocket("/chatbot")
+@app.websocket("/api/chatbot")
 async def websocket_endpoint(websocket: WebSocket):
-    """Handle WebSocket connections at this endpoint."""
+    """
+    Handle WebSocket connections for the chatbot.
+
+    Args:
+        websocket (WebSocket): The WebSocket connection to handle.
+    """
     await manager.connect(websocket)
     try:
         while True:
@@ -77,7 +102,6 @@ async def websocket_endpoint(websocket: WebSocket):
                 user_message
             ):
                 result = {"response": response, "source": source, "filename": filename}
-                # print(result)
                 await manager.send_personal_message(result, websocket)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
@@ -90,25 +114,25 @@ async def websocket_endpoint(websocket: WebSocket):
 @app.post("/files/create")
 async def create_file(file: UploadFile = File(...)):
     """
-    API endpoint to upload and create a file in the collection.
+    API endpoint to upload a file and add its content to the Qdrant collection.
 
     Args:
-        file (UploadFile): The file to be uploaded and added.
+        file (UploadFile): The file to be uploaded and processed.
 
     Returns:
-        dict: Success message if the file is added successfully.
+        dict: A success message indicating the file has been added to the collection.
+
+    Raises:
+        HTTPException: If there is an error while creating the file.
     """
     try:
-        # Define the directory to store files
-        data_dir = ".\\data\\"
+        data_dir = "./data/"
         os.makedirs(data_dir, exist_ok=True)
 
-        # Save the uploaded file to the data directory
         file_path = os.path.join(data_dir, file.filename)
         with open(file_path, "wb") as f:
             f.write(await file.read())
 
-        # Use the adaptor to add the file to the collection
         qdrant_adaptor.create_file(file_path)
 
         return {"message": f"File '{file.filename}' added to collection."}
@@ -119,14 +143,16 @@ async def create_file(file: UploadFile = File(...)):
 @app.get("/files/list")
 async def list_files():
     """
-    API endpoint to list all files in the collection.
+    API endpoint to list all files in the Qdrant collection.
 
     Returns:
-        dict: List of filenames in the collection.
+        dict: A list of filenames present in the collection.
+
+    Raises:
+        HTTPException: If there is an error while listing files.
     """
     try:
         filenames = qdrant_adaptor.list_file_path()
-        # Extract only the filenames from paths
         filenames = [os.path.basename(filename) for filename in filenames]
         return {"filenames": filenames}
     except Exception as e:
@@ -136,22 +162,22 @@ async def list_files():
 @app.delete("/files/delete")
 async def delete_file(filename: str):
     """
-    API endpoint to delete a file from the collection and remove it from local storage.
+    API endpoint to delete a file from the Qdrant collection and local storage.
 
     Args:
-        filename (str): Name of the file to be deleted.
+        filename (str): The name of the file to be deleted.
 
     Returns:
-        dict: Success message if the file is deleted successfully.
+        dict: A success message indicating the file has been deleted.
+
+    Raises:
+        HTTPException: If there is an error while deleting the file.
     """
     try:
-        # Construct the full path
-        file_path = f".\\data\\{filename}"
+        file_path = f"./data/{filename}"
 
-        # Delete file from the collection
         qdrant_adaptor.delete_file(file_path)
 
-        # Check if file still exists in the collection
         filenames_after_deletion = qdrant_adaptor.list_file_path()
         if file_path in filenames_after_deletion:
             raise HTTPException(
@@ -159,7 +185,6 @@ async def delete_file(filename: str):
                 detail=f"File '{filename}' could not be deleted from the collection.",
             )
 
-        # Remove the file from local storage
         if os.path.exists(file_path):
             os.remove(file_path)
 

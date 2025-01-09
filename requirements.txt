@@ -15,3 +15,4 @@ uuid
 streamlit
 gensim
 websockets
+aiofiles

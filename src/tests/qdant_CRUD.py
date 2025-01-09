@@ -1,3 +1,4 @@
+# This file for testing CRUD in Qdrant
 import sys
 import os
 import logging
@@ -50,6 +51,6 @@ def main(collection_name, pdf_path):
 
 
 if __name__ == "__main__":
-    collection_name = "medical1"
+    collection_name = "law"
     pdf_path = "src\\data\\sample.pdf"
     main(collection_name, pdf_path)

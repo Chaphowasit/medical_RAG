@@ -36,7 +36,7 @@ const FileManager: React.FC = () => {
     console.log("Fetching file list...");
     setLoading(true);
     try {
-      const response = await axios.get("http://localhost:8000/files/list");
+      const response = await axios.get(import.meta.env.VITE_API_URL +"/files/list");
       console.log("Files fetched successfully:", response.data.filenames);
       setFiles(response.data.filenames || []);
     } catch (error) {
@@ -58,7 +58,7 @@ const FileManager: React.FC = () => {
     setLoading(true);
     setMessage("Uploading...");
     try {
-      const response = await axios.post("http://localhost:8000/files/create", formData, {
+      const response = await axios.post(import.meta.env.VITE_API_URL +"/files/create", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -69,6 +69,7 @@ const FileManager: React.FC = () => {
     } catch (error) {
       console.error("Error uploading file:", error);
       setMessage("Error uploading file!");
+      alert("Error uploading file! Please try again.");
     } finally {
       setLoading(false);
     }
@@ -79,7 +80,7 @@ const FileManager: React.FC = () => {
     setLoading(true);
     setMessage("Deleting...");
     try {
-      const response = await axios.delete(`http://localhost:8000/files/delete`, {
+      const response = await axios.delete(import.meta.env.VITE_API_URL + "/files/delete", {
         params: { filename },
       });
       console.log("File deleted successfully:", response.data);

@@ -24,7 +24,7 @@ const Chatbot = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const websocket = new WebSocket("ws://"+ import.meta.env.VITE_API_URL +"/api/chatbot");
+    const websocket = new WebSocket("wss://llm-service.numedapp.com/api/chatbot");
 
     websocket.onopen = () => {
       console.log("WebSocket connection established.");
